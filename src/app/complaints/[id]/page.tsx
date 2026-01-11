@@ -59,6 +59,7 @@ interface Complaint {
   description: string;
   response: string | null;
   attachments: Attachment[];
+  solutionSuggestion: string;
 }
 
 /* ===================== Component ===================== */
@@ -241,6 +242,10 @@ export default function ComplaintDetailPage() {
           <div className="mt-4">
             <p className="text-gray-600 font-bold mb-1">الوصف:</p>
             <p className="bg-gray-50 p-3 rounded-lg border border-gray-100 italic">{complaint.description}</p>
+          </div>
+          <div className="mt-4">
+            <p className="text-gray-600 font-bold mb-1">مقترح الحل:</p>
+            <p className="bg-gray-50 p-3 rounded-lg border border-gray-100 italic">{complaint.solutionSuggestion}</p>
           </div>
 
           <div className="mt-6 max-w-xs">

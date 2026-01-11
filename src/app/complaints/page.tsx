@@ -22,6 +22,7 @@ export interface Complaint {
   citizenName: string;
   createdAt: string | null;
   updatedAt: string | null;
+  trackingNumber: string;
 }
 
 interface PaginationData {
@@ -36,7 +37,8 @@ export default function ComplaintsPage() {
   const [complaintType, setComplaintType] = useState("");
   const [status, setStatus] = useState("");
   const [province, setProvince] = useState("");
-  const [governmentAgency, setGovernmentAgency] = useState(""); // الفلتر الجديد
+  const [governmentAgency, setGovernmentAgency] = useState("");
+  const [trackingNumber, setTrackingNumber] = useState("");
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(false);
   
@@ -44,7 +46,7 @@ export default function ComplaintsPage() {
   const [paginationInfo, setPaginationInfo] = useState<PaginationData | null>(null);
 
   const token = Cookies.get("token");
-  const role = Cookies.get("role"); // جلب الرتبة للتحقق من الصلاحية
+  const role = Cookies.get("role");
 
   const complaintTypes = [
     "تأخر في إنجاز معاملة",
@@ -68,70 +70,59 @@ export default function ComplaintsPage() {
   const provinces = ["دمشق", "ريف دمشق", "حلب", "حمص", "اللاذقية", "حماة", "طرطوس", "دير الزور", "الحسكة", "الرقة", "إدلب", "السويداء", "درعا", "القنيطرة"];
 
   const agencies = [
-    "وزارة الإدارة المحلية والبيئة",
-    "وزارة المالية",
-    "وزارة الدفاع",
-    "وزارة الاقتصاد والصناعة",
-    "وزارة التعليم العالي",
-    "وزارة الصحة",
-    "وزارة التربية",
-    "وزارة الطاقة",
-    "أمانة رئاسة مجلس الوزراء",
-    "وزارة الأشغال العامة والإسكان",
-    "وزارة الاتصالات والتقانة",
-    "وزارة الداخلية",
-    "وزارة الزراعة",
-    "وزارة الشؤون الاجتماعية والعمل",
-    "وزارة الثقافة",
-    "وزارة النقل",
-    "وزارة العدل",
-    "وزارة السياحة",
-    "وزارة الإعلام",
-    "وزارة الأوقاف",
-    "نقابة المعلمين",
-    "الاتحاد الرياضي العام",
-    "الاتحاد العام للفلاحين",
-    "مجلس الدولة",
-    "وزارة التنمية الإدارية",
-    "وزارة الخارجية والمغتربين",
-    "وزارة الطوارئ والكوارث",
+    "وزارة الإدارة المحلية والبيئة", "وزارة المالية", "وزارة الدفاع", "وزارة الاقتصاد والصناعة",
+    "وزارة التعليم العالي", "وزارة الصحة", "وزارة التربية", "وزارة الطاقة",
+    "أمانة رئاسة مجلس الوزراء", "وزارة الأشغال العامة والإسكان", "وزارة الاتصالات والتقانة",
+    "وزارة الداخلية", "وزارة الزراعة", "وزارة الشؤون الاجتماعية والعمل", "وزارة الثقافة",
+    "وزارة النقل", "وزارة العدل", "وزارة السياحة", "وزارة الإعلام", "وزارة الأوقاف",
+    "نقابة المعلمين", "الاتحاد الرياضي العام", "الاتحاد العام للفلاحين", "مجلس الدولة",
+    "وزارة التنمية الإدارية", "وزارة الخارجية والمغتربين", "وزارة الطوارئ والكوارث",
     "الهيئة العامة للمنافذ البرية والبحرية"
   ];
+
   const fetchComplaints = async () => {
     setLoading(true);
     try {
-      // الاعتماد على رابط الفلترة بشكل أساسي كما في طلبك
-      const finalUrl = "http://89.116.236.10:3200/api/v1/complaints/filter";
-
-      const queryParams = {
-        page: page,
-        size: 9,
-        status: status || undefined,
-        complaintType: complaintType || undefined,
-        governorate: province || undefined,
-        governmentAgency: governmentAgency || undefined, // إرسال الجهة الحكومية للفلترة
-      };
-
-      const res = await axios.get(finalUrl, {
-        headers: { 
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json" 
-        },
-        params: queryParams,
-      });
-
-      setComplaints(res.data.content || res.data || []);
-      
-      if (res.data.totalPages !== undefined) {
-        setPaginationInfo({
-          totalPages: res.data.totalPages,
-          totalElements: res.data.totalElements,
-          page: res.data.page,
-          hasNext: res.data.hasNext,
-          hasPrevious: res.data.hasPrevious
+      if (trackingNumber.trim()) {
+        const trackingUrl = `http://89.116.236.10:3200/api/v1/complaints/tracking/${trackingNumber.trim()}`;
+        const res = await axios.get(trackingUrl, {
+          headers: { Authorization: `Bearer ${token}` }
         });
-      }
+        
+        const data = res.data;
+        setComplaints(data ? [data] : []);
+        setPaginationInfo(null);
+      } else {
+        const finalUrl = "http://89.116.236.10:3200/api/v1/complaints/filter";
+        const queryParams = {
+          page: page,
+          size: 9,
+          status: status || undefined,
+          complaintType: complaintType || undefined,
+          governorate: province || undefined,
+          governmentAgency: governmentAgency || undefined,
+        };
 
+        const res = await axios.get(finalUrl, {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json" 
+          },
+          params: queryParams,
+        });
+
+        setComplaints(res.data.content || res.data || []);
+        
+        if (res.data.totalPages !== undefined) {
+          setPaginationInfo({
+            totalPages: res.data.totalPages,
+            totalElements: res.data.totalElements,
+            page: res.data.page,
+            hasNext: res.data.hasNext,
+            hasPrevious: res.data.hasPrevious
+          });
+        }
+      }
     } catch (err) {
       console.error("فشل جلب الشكاوي:", err);
       setComplaints([]);
@@ -141,14 +132,13 @@ export default function ComplaintsPage() {
     }
   };
 
-  // تصفير الصفحة عند تغيير أي فلتر بما في ذلك الجهة الحكومية
   useEffect(() => {
     setPage(0);
-  }, [complaintType, status, province, governmentAgency]);
+  }, [complaintType, status, province, governmentAgency, trackingNumber]);
 
   useEffect(() => {
     fetchComplaints();
-  }, [complaintType, status, province, governmentAgency, page]);
+  }, [complaintType, status, province, governmentAgency, page, trackingNumber]);
 
   const getStatusStyle = (s: string) => {
     switch (s) {
@@ -160,64 +150,95 @@ export default function ComplaintsPage() {
     }
   };
 
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   return (
     <div className="p-6 pl-12 w-full space-y-6">
       <h1 className="text-[32px] font-bold mb-6">إدارة الشكاوي</h1>
 
-      {/* Filters Section */}
-      <div className={`grid grid-cols-1 ${role === 'PLATFORM_ADMIN' ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-4 mb-8`}>
+      {/* حقل البحث برقم التتبع (تمت إضافته كفلتر إضافي مستقل) */}
+      <div className="mb-6 max-w-md">
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-semibold text-gray-600 mr-1 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span> بحث برقم التتبع
+          </label>
+          <input 
+            type="text"
+            placeholder="مثال: SHK-20250215-AB12CD"
+            value={trackingNumber}
+            onChange={(e) => setTrackingNumber(e.target.value)}
+            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-gray-700 shadow-sm"
+          />
+        </div>
+      </div>
+
+      {/* لاحظ التغيير في الـ className هنا */}
+      <div className={`grid grid-cols-1 ${
+        (mounted && role === 'PLATFORM_ADMIN') ? 'md:grid-cols-4' : 'md:grid-cols-3'
+      } gap-4 mb-8`}>
+        
+        {/* العمود 1: نوع الشكوى */}
         <div className="flex flex-col gap-2">
           <label className="text-sm font-semibold text-gray-600 mr-1 flex items-center gap-2">
             <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span> نوع الشكوى
           </label>
           <select 
+            disabled={!!trackingNumber}
             value={complaintType} 
             onChange={(e) => setComplaintType(e.target.value)}
-            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-gray-700 shadow-sm appearance-none cursor-pointer"
+            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-gray-700 shadow-sm appearance-none cursor-pointer disabled:bg-gray-50 disabled:text-gray-400"
           >
             <option value="">كل الأنواع</option>
             {complaintTypes.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
 
+        {/* العمود 2: حالة الشكوى */}
         <div className="flex flex-col gap-2">
           <label className="text-sm font-semibold text-gray-600 mr-1 flex items-center gap-2">
             <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span> حالة الشكوى
           </label>
           <select 
+            disabled={!!trackingNumber}
             value={status} 
             onChange={(e) => setStatus(e.target.value)}
-            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-gray-700 shadow-sm appearance-none cursor-pointer"
+            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-gray-700 shadow-sm appearance-none cursor-pointer disabled:bg-gray-50 disabled:text-gray-400"
           >
             <option value="">كل الحالات</option>
             {statuses.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
         </div>
 
+        {/* العمود 3: المحافظة */}
         <div className="flex flex-col gap-2">
           <label className="text-sm font-semibold text-gray-600 mr-1 flex items-center gap-2">
             <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span> المحافظة
           </label>
           <select 
+            disabled={!!trackingNumber}
             value={province} 
             onChange={(e) => setProvince(e.target.value)}
-            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-gray-700 shadow-sm appearance-none cursor-pointer"
+            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-gray-700 shadow-sm appearance-none cursor-pointer disabled:bg-gray-50 disabled:text-gray-400"
           >
             <option value="">كل المحافظات</option>
             {provinces.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
 
-        {/* الفلتر الرابع للـ PLATFORM_ADMIN فقط */}
-        {role === "PLATFORM_ADMIN" && (
+        {/* العمود 4: الجهة الحكومية (يظهر فقط للآدمن بعد التحميل) */}
+        {mounted && role === "PLATFORM_ADMIN" && (
           <div className="flex flex-col gap-2">
             <label className="text-sm font-semibold text-gray-600 mr-1 flex items-center gap-2">
               <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span> الجهة الحكومية
             </label>
             <select 
+              disabled={!!trackingNumber}
               value={governmentAgency} 
               onChange={(e) => setGovernmentAgency(e.target.value)}
-              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-gray-700 shadow-sm appearance-none cursor-pointer"
+              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-gray-700 shadow-sm appearance-none cursor-pointer disabled:bg-gray-50 disabled:text-gray-400"
             >
               <option value="">كل الجهات</option>
               {agencies.map(a => <option key={a} value={a}>{a}</option>)}
@@ -282,7 +303,7 @@ export default function ComplaintsPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
                   </Link>
-                  <span className="text-[11px] text-gray-300 font-mono">#{c.id}</span>
+                  <span className="text-[11px] text-gray-300 font-mono">#{c.trackingNumber}</span>
                 </div>
               </div>
             ))}

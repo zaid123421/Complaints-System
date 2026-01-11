@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { RxDashboard } from "react-icons/rx";
-import { AiOutlineHome, AiOutlineLogout } from "react-icons/ai";
+import { AiOutlineHistory, AiOutlineHome, AiOutlineLogout } from "react-icons/ai";
 import { FiUsers, FiSettings, FiFileText } from "react-icons/fi";
 import Cookies from "js-cookie";
 import { hasPermission } from "@/lib/hasPermission";
@@ -39,7 +39,6 @@ export default function Sidebar() {
       const token = Cookies.get("token");
 
       if (!token) {
-        // ما في توكن أصلاً → طلع عاللوغين
         router.replace("/login");
         return;
       }
@@ -56,7 +55,6 @@ export default function Sidebar() {
       );
 
       if (!res.ok) {
-        // الطلب فشل → ما نمسح شي
         console.error("Logout failed:", res.status);
         return;
       }
@@ -88,19 +86,17 @@ export default function Sidebar() {
         {/* Navigation */}
         <ul className="flex flex-col gap-4 w-full mt-5">
           {/* الرئيسية */}
-          <li>
-            <Link
-              href={
-                role !== "PLATFORM_ADMIN"
-                  ? "/employee/dashboard"
-                  : "/dashboard"
-              }
-              className={linkClasses("/dashboard")}
-            >
-              <AiOutlineHome size={20} />
-              <span className="hidden sm:inline">الرئيسية</span>
-            </Link>
-          </li>
+          {role === "PLATFORM_ADMIN" && (
+            <li>
+              <Link
+                href="/dashboard"
+                className={linkClasses("/dashboard")}
+              >
+                <AiOutlineHome size={20} />
+                <span className="hidden sm:inline">الرئيسية</span>
+              </Link>
+            </li>
+          )}
 
           {/* المستخدمين */}
           {role && hasPermission("createUsers") && (
@@ -132,13 +128,25 @@ export default function Sidebar() {
             </li>
           )}
 
+          {role === "PLATFORM_ADMIN" && (
+            <li>
+              <Link
+                href="/audit-logs"
+                className={linkClasses("/audit-logs")}
+              >
+                <AiOutlineHistory size={20} />
+                <span className="hidden sm:inline">سجل التدقيق</span>
+              </Link>
+            </li>
+          )}
+
           {/* الإعدادات */}
-          <li>
+          {/* <li>
             <Link href="/settings" className={linkClasses("/settings")}>
               <FiSettings size={20} />
               <span className="hidden sm:inline">الإعدادات</span>
             </Link>
-          </li>
+          </li> */}
         </ul>
       </div>
 
