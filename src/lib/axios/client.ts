@@ -1,8 +1,9 @@
 import axios from "axios";
 import Cookies from "js-cookie";
+import { API_BASE_URL } from "@/lib/api/config";
 
 const client = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "/api/v1",
+  baseURL: API_BASE_URL,
   withCredentials: true,
 });
 

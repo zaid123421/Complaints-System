@@ -1,5 +1,6 @@
 import { AxiosError } from "axios";
 import client from "../axios/client";
+import { API_BASE_URL } from "@/lib/api/config";
 import type { PaginatedResponse } from "@/types/api";
 import type {
   ComplaintListItem,
@@ -84,6 +85,5 @@ export const downloadAttachment = async (url: string): Promise<Blob> => {
 };
 
 export const getAttachmentUrl = (complaintId: number, attachmentId: number): string => {
-  const base = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-  return `${base}/complaints/${complaintId}/attachments/${attachmentId}`;
+  return `${API_BASE_URL}/complaints/${complaintId}/attachments/${attachmentId}`;
 };

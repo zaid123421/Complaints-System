@@ -112,3 +112,30 @@ export const DEMO_ACCOUNTS = {
   supervisor: { email: "supervisor@demo.com", password: DEMO_PASSWORD, role: "SUPERVISOR", firstName: "سارة", lastName: "المشرفة" },
   viewer: { email: "viewer@demo.com", password: DEMO_PASSWORD, role: "VIEWER", firstName: "محمد", lastName: "المشاهد" },
 } as const;
+
+export const DEMO_ACCOUNT_OPTIONS = [
+  {
+    id: "admin",
+    loginType: "admin" as const,
+    label: "مدير المنصة",
+    roleLabel: "PLATFORM_ADMIN",
+    email: DEMO_ACCOUNTS.admin.email,
+    password: DEMO_PASSWORD,
+  },
+  {
+    id: "supervisor",
+    loginType: "employee" as const,
+    label: "مشرف",
+    roleLabel: "SUPERVISOR",
+    email: DEMO_ACCOUNTS.supervisor.email,
+    password: DEMO_PASSWORD,
+  },
+  {
+    id: "viewer",
+    loginType: "employee" as const,
+    label: "مشاهد",
+    roleLabel: "VIEWER",
+    email: DEMO_ACCOUNTS.viewer.email,
+    password: DEMO_PASSWORD,
+  },
+] as const;

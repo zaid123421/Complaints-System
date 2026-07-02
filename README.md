@@ -9,7 +9,7 @@ pnpm install
 pnpm dev
 ```
 
-افتح [http://localhost:3000](http://localhost:3000)
+افتح [http://localhost:3005](http://localhost:3005)
 
 ## حسابات التجربة (Demo)
 
@@ -34,7 +34,8 @@ pnpm dev
 
 1. اربط المستودع مع Vercel
 2. إعدادات البناء الافتراضية كافية (`pnpm build`)
-3. اختياري: أضف `NEXT_PUBLIC_API_URL=/api/v1` في Environment Variables
+3. **لا تضف** `NEXT_PUBLIC_API_URL` يشير لسيرفر خارجي — إذا موجود على Vercel احذفه
+4. كل الـ API تشتغل محلياً عبر `/api/v1` بدون backend خارجي
 
 ## ملاحظات
 
