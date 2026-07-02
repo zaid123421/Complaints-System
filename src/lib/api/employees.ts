@@ -1,28 +1,12 @@
 import { AxiosError } from "axios";
 import client from "../axios/client";
-import Cookies from "js-cookie";
+import type { EmployeeForm } from "@/types/user";
 
-export interface EmployeeForm {
-  firstName: string;
-  lastName: string;
-  password: string;
-  phoneNumber: string;
-  dateOfHire: string;
-  roleName: string;
-  status: string;
-  governmentAgencyType: string;
-}
+export type { EmployeeForm };
 
 export const addEmployee = async (employee: EmployeeForm) => {
   try {
-    const token = Cookies.get("token");
-
-    const res = await client.post("/employees", employee, {
-      headers: {
-        Authorization: token ? `Bearer ${token}` : "",
-      },
-    });
-
+    const res = await client.post("/employees", employee);
     return res.data;
   } catch (err) {
     const error = err as AxiosError<{ message: string }>;

@@ -3,7 +3,9 @@
 import { useState, useEffect, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
-import { addEmployee, EmployeeForm } from "@/lib/api/employees";
+import { addEmployee } from "@/lib/api/employees";
+import type { EmployeeForm } from "@/types/user";
+import { AGENCIES } from "@/constants/reference-data";
 import { Listbox, Transition } from "@headlessui/react";
 import { CheckIcon, ChevronUpDownIcon } from "@heroicons/react/24/solid";
 
@@ -30,36 +32,7 @@ export default function AddEmployeePage() {
     setTimeout(() => setNotification(null), duration);
   };
 
-  const agencies = [
-    "وزارة الإدارة المحلية والبيئة",
-    "وزارة المالية",
-    "وزارة الدفاع",
-    "وزارة الاقتصاد والصناعة",
-    "وزارة التعليم العالي",
-    "وزارة الصحة",
-    "وزارة التربية",
-    "وزارة الطاقة",
-    "أمانة رئاسة مجلس الوزراء",
-    "وزارة الأشغال العامة والإسكان",
-    "وزارة الاتصالات والتقانة",
-    "وزارة الداخلية",
-    "وزارة الزراعة",
-    "وزارة الشؤون الاجتماعية والعمل",
-    "وزارة الثقافة",
-    "وزارة النقل",
-    "وزارة العدل",
-    "وزارة السياحة",
-    "وزارة الإعلام",
-    "وزارة الأوقاف",
-    "نقابة المعلمين",
-    "الاتحاد الرياضي العام",
-    "الاتحاد العام للفلاحين",
-    "مجلس الدولة",
-    "وزارة التنمية الإدارية",
-    "وزارة الخارجية والمغتربين",
-    "وزارة الطوارئ والكوارث",
-    "الهيئة العامة للمنافذ البرية والبحرية"
-  ];
+  const agencies = [...AGENCIES];
 
   const roles = ["SUPERVISOR", "VIEWER"];
   const statuses = ["ACTIVE", "INACTIVE"];

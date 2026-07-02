@@ -3,41 +3,26 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Cookies from "js-cookie";
-
-interface Citizen {
-  id: number;
-  name: string;
-  email: string;
-  isActive: boolean;
-}
-
-interface Employee {
-  id: number;
-  id_employee?: number;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phoneNumber: string;
-  roleName: string;
-  status: string;
-}
-
-interface ApiResponse<T> {
-  content: T[];
-  page: number;
-  size: number;
-  totalElements: number;
-  totalPages: number;
-  hasNext: boolean;
-  hasPrevious: boolean;
-}
+import type { Citizen, Employee } from "@/types/user";
+import type { PaginatedResponse } from "@/types/api";
+import {
+  getCitizens,
+  searchCitizens,
+  getEmployees,
+  deleteEmployee,
+  resetPassword,
+  suspendCitizen,
+  unsuspendCitizen,
+  updateEmployeeRole,
+  updateEmployeeStatus,
+} from "@/lib/api/users";
 
 type UserType = "citizens" | "employees";
 
 export default function UsersPage() {
   const [userType, setUserType] = useState<UserType>("citizens");
-  const [citizenData, setCitizenData] = useState<ApiResponse<Citizen> | null>(null);
-  const [employeeData, setEmployeeData] = useState<ApiResponse<Employee> | null>(null);
+  const [citizenData, setCitizenData] = useState<PaginatedResponse<Citizen> | null>(null);
+  const [employeeData, setEmployeeData] = useState<PaginatedResponse<Employee> | null>(null);
   const [page, setPage] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [loadingId, setLoadingId] = useState<number | null>(null);
@@ -63,23 +48,15 @@ export default function UsersPage() {
 
   const fetchUsers = async () => {
     if (!token) return;
-    const endpoint = userType === "citizens" ? "citizens" : "employees";
-    let url = "";
-
-    if (userType === "citizens" && searchQuery.trim() !== "") {
-      url = `http://89.116.236.10:3200/api/v1/citizens/search?name=${encodeURIComponent(searchQuery)}&page=${page}&size=${size}`;
-    } else {
-      url = `http://89.116.236.10:3200/api/v1/${endpoint}?page=${page}&size=${size}`;
-    }
 
     try {
-      const res = await fetch(url, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      });
-      const json = await res.json();
-
-      if (userType === "employees") {
+      if (userType === "citizens") {
+        const json = searchQuery.trim()
+          ? await searchCitizens(searchQuery, page, size)
+          : await getCitizens(page, size);
+        setCitizenData(json);
+      } else {
+        const json = await getEmployees();
         setEmployeeData({
           content: json,
           page: 0,
@@ -89,37 +66,26 @@ export default function UsersPage() {
           hasNext: false,
           hasPrevious: false,
         });
-      } else {
-        setCitizenData(json);
       }
-    } catch (error) {
+    } catch {
       showNotify("فشل في جلب البيانات", "error");
     }
   };
 
-  // دالة حذف الموظف
   const handleDeleteEmployee = async (id: number) => {
     if (!confirm("هل أنت متأكد من حذف هذا الموظف نهائياً؟")) return;
     setLoadingId(id);
     try {
-      const res = await fetch(`http://89.116.236.10:3200/api/v1/employees/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        showNotify("تم حذف الموظف بنجاح", "success");
-        if (employeeData) {
-          setEmployeeData({
-            ...employeeData,
-            content: employeeData.content.filter(e => e.id !== id)
-          });
-        }
-      } else {
-        showNotify("فشل في حذف الموظف", "error");
+      await deleteEmployee(id);
+      showNotify("تم حذف الموظف بنجاح", "success");
+      if (employeeData) {
+        setEmployeeData({
+          ...employeeData,
+          content: employeeData.content.filter((e) => e.id !== id),
+        });
       }
-    } catch (e) {
-      showNotify("خطأ في الاتصال بالسيرفر", "error");
+    } catch {
+      showNotify("فشل في حذف الموظف", "error");
     } finally {
       setLoadingId(null);
     }
@@ -129,27 +95,12 @@ export default function UsersPage() {
     if (!targetEmployeeId || !newPassword.trim()) return;
     setLoadingId(targetEmployeeId);
     setIsPasswordModalOpen(false);
-    
-    try {
-      const res = await fetch(`http://89.116.236.10:3200/api/v1/password/reset`, {
-        method: "PUT",
-        headers: { 
-            Authorization: `Bearer ${token}`, 
-            "Content-Type": "application/json" 
-        },
-        body: JSON.stringify({ 
-            userId: targetEmployeeId, 
-            newPassword: newPassword 
-        }),
-      });
 
-      if (res.ok) {
-        showNotify("تم تغيير كلمة المرور بنجاح", "success");
-      } else {
-        showNotify("فشل في تغيير كلمة المرور", "error");
-      }
-    } catch (e) {
-      showNotify("خطأ في الاتصال بالسيرفر", "error");
+    try {
+      await resetPassword(targetEmployeeId, newPassword);
+      showNotify("تم تغيير كلمة المرور بنجاح", "success");
+    } catch {
+      showNotify("فشل في تغيير كلمة المرور", "error");
     } finally {
       setLoadingId(null);
       setNewPassword("");
@@ -160,21 +111,19 @@ export default function UsersPage() {
   const handleUnsuspend = async (id: number) => {
     setLoadingId(id);
     try {
-      const res = await fetch(`http://89.116.236.10:3200/api/v1/admin/users/citizens/${id}/unsuspend`, {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        showNotify("تم فك الحظر بنجاح", "success");
-        if (citizenData) {
-          setCitizenData({
-            ...citizenData,
-            content: citizenData.content.map(c => c.id === id ? { ...c, isActive: true } : c)
-          });
-        }
+      await unsuspendCitizen(id);
+      showNotify("تم فك الحظر بنجاح", "success");
+      if (citizenData) {
+        setCitizenData({
+          ...citizenData,
+          content: citizenData.content.map((c) => (c.id === id ? { ...c, isActive: true } : c)),
+        });
       }
-    } catch (e) { showNotify("خطأ في الاتصال", "error"); }
-    finally { setLoadingId(null); }
+    } catch {
+      showNotify("خطأ في الاتصال", "error");
+    } finally {
+      setLoadingId(null);
+    }
   };
 
   const handleSuspendConfirm = async () => {
@@ -182,59 +131,62 @@ export default function UsersPage() {
     setLoadingId(targetCitizenId);
     setIsSuspendModalOpen(false);
     try {
-      const res = await fetch(`http://89.116.236.10:3200/api/v1/admin/users/citizens/${targetCitizenId}/suspend`, {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: suspendReason }),
-      });
-      if (res.ok) {
-        showNotify("تم الحظر بنجاح", "success");
-        if (citizenData) {
-          setCitizenData({
-            ...citizenData,
-            content: citizenData.content.map(c => c.id === targetCitizenId ? { ...c, isActive: false } : c)
-          });
-        }
+      await suspendCitizen(targetCitizenId, suspendReason);
+      showNotify("تم الحظر بنجاح", "success");
+      if (citizenData) {
+        setCitizenData({
+          ...citizenData,
+          content: citizenData.content.map((c) =>
+            c.id === targetCitizenId ? { ...c, isActive: false } : c
+          ),
+        });
       }
-    } catch (e) { showNotify("فشل الحظر", "error"); }
-    finally { setLoadingId(null); setSuspendReason(""); setTargetCitizenId(null); }
+    } catch {
+      showNotify("فشل الحظر", "error");
+    } finally {
+      setLoadingId(null);
+      setSuspendReason("");
+      setTargetCitizenId(null);
+    }
   };
 
-  const updateEmployeeRole = async (id: number, newRole: string) => {
+  const updateEmployeeRoleHandler = async (id: number, newRole: string) => {
     setLoadingId(id);
     try {
-      const res = await fetch(`http://89.116.236.10:3200/api/v1/admin/users/employees/${id}/role?roleName=${newRole}`, {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok && employeeData) {
+      await updateEmployeeRole(id, newRole);
+      if (employeeData) {
         setEmployeeData({
           ...employeeData,
-          content: employeeData.content.map(e => e.id === id ? { ...e, roleName: newRole } : e)
+          content: employeeData.content.map((e) => (e.id === id ? { ...e, roleName: newRole } : e)),
         });
         showNotify("تم تحديث الدور", "success");
       }
-    } catch (e) { showNotify("حدث خطأ", "error"); }
-    finally { setLoadingId(null); }
+    } catch {
+      showNotify("حدث خطأ", "error");
+    } finally {
+      setLoadingId(null);
+    }
   };
 
   const handleStatusChange = async (id: number, current: string, target: string) => {
     if ((current === "ACTIVE" ? "enable" : "disable") === target) return;
     setLoadingId(id);
     try {
-      const res = await fetch(`http://89.116.236.10:3200/api/v1/admin/users/employees/${id}/${target}`, {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok && employeeData) {
+      await updateEmployeeStatus(id, target as "enable" | "disable");
+      if (employeeData) {
         setEmployeeData({
           ...employeeData,
-          content: employeeData.content.map(e => e.id === id ? { ...e, status: target === "enable" ? "ACTIVE" : "DISABLED" } : e)
+          content: employeeData.content.map((e) =>
+            e.id === id ? { ...e, status: target === "enable" ? "ACTIVE" : "DISABLED" } : e
+          ),
         });
         showNotify("تم تحديث الحالة", "success");
       }
-    } catch (e) { showNotify("حدث خطأ", "error"); }
-    finally { setLoadingId(null); }
+    } catch {
+      showNotify("حدث خطأ", "error");
+    } finally {
+      setLoadingId(null);
+    }
   };
 
   useEffect(() => {
@@ -339,7 +291,7 @@ export default function UsersPage() {
                 <td className="p-4 text-gray-600">{user.email}</td>
                 <td className="p-4 text-gray-600">{user.phoneNumber}</td>
                 <td className="p-4">
-                    <select value={user.roleName} onChange={(e) => updateEmployeeRole(user.id, e.target.value)} className="bg-blue-100 text-blue-700 px-3 py-1 rounded-lg text-xs font-bold border-none outline-none cursor-pointer">
+                    <select value={user.roleName} onChange={(e) => updateEmployeeRoleHandler(user.id, e.target.value)} className="bg-blue-100 text-blue-700 px-3 py-1 rounded-lg text-xs font-bold border-none outline-none cursor-pointer">
                         <option value="VIEWER">VIEWER</option>
                         <option value="SUPERVISOR">SUPERVISOR</option>
                     </select>

@@ -14,29 +14,8 @@ import {
   Pie,
   Cell,
 } from "recharts";
-
-interface TopAgency {
-  agencyName: string;
-  agencyLabel: string;
-  complaintCount: number;
-}
-
-interface TopComplaintType {
-  typeName: string;
-  typeLabel: string;
-  complaintCount: number;
-}
-
-interface DashboardData {
-  totalComplaints: number;
-  resolvedComplaints: number;
-  openComplaints: number;
-  overdueComplaints: number;
-  averageResolutionTimeDays: number;
-  averageResolutionTimeHours: number;
-  topAgenciesByComplaints: TopAgency[];
-  topComplaintTypes: TopComplaintType[];
-}
+import type { DashboardData } from "@/types/dashboard";
+import { getDashboardOverview, exportDashboard } from "@/lib/api/dashboard";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -65,28 +44,12 @@ export default function DashboardPage() {
       return;
     }
 
-    const params = new URLSearchParams();
-    console.log(from);
-    console.log(to);
-    console.log(overdueDaysThreshold);
-    if (from) params.append("fromDate", from);
-    if (to) params.append("toDate", to);
-    if (overdueDaysThreshold)
-      params.append(
-        "overdueDaysThreshold",
-        overdueDaysThreshold.toString()
-      );
+    const params: { fromDate?: string; toDate?: string; overdueDaysThreshold?: number } = {};
+    if (from) params.fromDate = from;
+    if (to) params.toDate = to;
+    if (overdueDaysThreshold) params.overdueDaysThreshold = overdueDaysThreshold;
 
-    const res = await fetch(
-      `http://89.116.236.10:3200/api/v1/admin/dashboard/overview?${params.toString()}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    const json = await res.json();
+    const json = await getDashboardOverview(params);
     setData(json);
   };
 
@@ -97,42 +60,28 @@ export default function DashboardPage() {
     return;
   }
 
-  const params = new URLSearchParams();
+  const params: { fromDate?: string; toDate?: string; overdueDaysThreshold?: number; format?: string } = {
+    format: exportFormat,
+  };
+  if (from) params.fromDate = from;
+  if (to) params.toDate = to;
+  if (overdueDaysThreshold) params.overdueDaysThreshold = overdueDaysThreshold;
 
-  params.append("format", exportFormat);
-  if (from) params.append("fromDate", from);
-  if (to) params.append("toDate", to);
-  if (overdueDaysThreshold)
-    params.append(
-      "overdueDaysThreshold",
-      overdueDaysThreshold.toString()
-    );
+  try {
+    const blob = await exportDashboard(params);
+    const url = window.URL.createObjectURL(blob);
 
-  const res = await fetch(
-    `http://89.116.236.10:3200/api/v1/admin/dashboard/export?${params.toString()}`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `dashboard-report.${exportFormat === "pdf" ? "pdf" : "xlsx"}`;
+    document.body.appendChild(a);
+    a.click();
 
-  if (!res.ok) {
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  } catch {
     alert("فشل تصدير التقرير");
-    return;
   }
-
-  const blob = await res.blob();
-  const url = window.URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `dashboard-report.${exportFormat === "pdf" ? "pdf" : "xlsx"}`;
-  document.body.appendChild(a);
-  a.click();
-
-  a.remove();
-  window.URL.revokeObjectURL(url);
 };
 
 

@@ -9,6 +9,7 @@ import { FiUsers, FiSettings, FiFileText } from "react-icons/fi";
 import Cookies from "js-cookie";
 import { hasPermission } from "@/lib/hasPermission";
 import { Role } from "@/lib/permissions";
+import { logout } from "@/lib/api/auth";
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -43,27 +44,15 @@ export default function Sidebar() {
         return;
       }
 
-      const res = await fetch(
-        "http://89.116.236.10:3200/api/v1/auth/logout",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (!res.ok) {
-        console.error("Logout failed:", res.status);
-        return;
-      }
+      await logout();
 
       Cookies.remove("token");
       Cookies.remove("role");
+      Cookies.remove("firstName");
+      Cookies.remove("lastName");
       router.replace("/login");
-    } catch (error) {
-      console.error("Logout error:", error);
+    } catch {
+      // ignore
     } finally {
       setLogoutLoading(false);
     }

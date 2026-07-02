@@ -1,29 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import axios from "axios";
 import Cookies from "js-cookie";
 import Link from "next/link";
-
-export interface Complaint {
-  id: number;
-  status: string;
-  complaintType: string;
-  governorate: string;
-  governmentAgency: string;
-  location: string;
-  description: string;
-  solutionSuggestion: string;
-  response: string | null;
-  respondedAt: string | null;
-  respondedByName: string | null;
-  attachments: string[];
-  citizenId: number;
-  citizenName: string;
-  createdAt: string | null;
-  updatedAt: string | null;
-  trackingNumber: string;
-}
+import {
+  filterComplaints,
+  getComplaintByTracking,
+  type Complaint,
+} from "@/lib/api/complaints";
+import {
+  COMPLAINT_TYPES,
+  COMPLAINT_STATUSES,
+  PROVINCES,
+  AGENCIES,
+} from "@/constants/reference-data";
 
 interface PaginationData {
   totalPages: number;
@@ -45,86 +35,43 @@ export default function ComplaintsPage() {
   const [page, setPage] = useState(0);
   const [paginationInfo, setPaginationInfo] = useState<PaginationData | null>(null);
 
-  const token = Cookies.get("token");
   const role = Cookies.get("role");
 
-  const complaintTypes = [
-    "تأخر في إنجاز معاملة",
-    "تعامل الموظف مقدم الخدمة",
-    "تعطل النظام التقني",
-    "تعقيد في الإجراءات",
-    "رسوم الخدمة",
-    "ضعف جودة الخدمة",
-    "طول مدة الانتظار",
-    "عدم الموافقة على الخدمة",
-  ];
-
-  const statuses = [
-    { label: "قيد الانتظار", value: "PENDING" },
-    { label: "قيد المعالجة", value: "IN_PROGRESS" },
-    { label: "تم الحل", value: "RESOLVED" },
-    { label: "مغلقة", value: "CLOSED" },
-    { label: "مرفوضة", value: "REJECTED" },
-  ];
-
-  const provinces = ["دمشق", "ريف دمشق", "حلب", "حمص", "اللاذقية", "حماة", "طرطوس", "دير الزور", "الحسكة", "الرقة", "إدلب", "السويداء", "درعا", "القنيطرة"];
-
-  const agencies = [
-    "وزارة الإدارة المحلية والبيئة", "وزارة المالية", "وزارة الدفاع", "وزارة الاقتصاد والصناعة",
-    "وزارة التعليم العالي", "وزارة الصحة", "وزارة التربية", "وزارة الطاقة",
-    "أمانة رئاسة مجلس الوزراء", "وزارة الأشغال العامة والإسكان", "وزارة الاتصالات والتقانة",
-    "وزارة الداخلية", "وزارة الزراعة", "وزارة الشؤون الاجتماعية والعمل", "وزارة الثقافة",
-    "وزارة النقل", "وزارة العدل", "وزارة السياحة", "وزارة الإعلام", "وزارة الأوقاف",
-    "نقابة المعلمين", "الاتحاد الرياضي العام", "الاتحاد العام للفلاحين", "مجلس الدولة",
-    "وزارة التنمية الإدارية", "وزارة الخارجية والمغتربين", "وزارة الطوارئ والكوارث",
-    "الهيئة العامة للمنافذ البرية والبحرية"
-  ];
+  const complaintTypes = [...COMPLAINT_TYPES];
+  const statuses = [...COMPLAINT_STATUSES];
+  const provinces = [...PROVINCES];
+  const agencies = [...AGENCIES];
 
   const fetchComplaints = async () => {
     setLoading(true);
     try {
       if (trackingNumber.trim()) {
-        const trackingUrl = `http://89.116.236.10:3200/api/v1/complaints/tracking/${trackingNumber.trim()}`;
-        const res = await axios.get(trackingUrl, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        const data = res.data;
+        const data = await getComplaintByTracking(trackingNumber);
         setComplaints(data ? [data] : []);
         setPaginationInfo(null);
       } else {
-        const finalUrl = "http://89.116.236.10:3200/api/v1/complaints/filter";
-        const queryParams = {
-          page: page,
+        const res = await filterComplaints({
+          page,
           size: 9,
           status: status || undefined,
           complaintType: complaintType || undefined,
           governorate: province || undefined,
           governmentAgency: governmentAgency || undefined,
-        };
-
-        const res = await axios.get(finalUrl, {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json" 
-          },
-          params: queryParams,
         });
 
-        setComplaints(res.data.content || res.data || []);
-        
-        if (res.data.totalPages !== undefined) {
+        setComplaints(res.content || []);
+
+        if (res.totalPages !== undefined) {
           setPaginationInfo({
-            totalPages: res.data.totalPages,
-            totalElements: res.data.totalElements,
-            page: res.data.page,
-            hasNext: res.data.hasNext,
-            hasPrevious: res.data.hasPrevious
+            totalPages: res.totalPages,
+            totalElements: res.totalElements,
+            page: res.page,
+            hasNext: res.hasNext,
+            hasPrevious: res.hasPrevious,
           });
         }
       }
-    } catch (err) {
-      console.error("فشل جلب الشكاوي:", err);
+    } catch {
       setComplaints([]);
       setPaginationInfo(null);
     } finally {

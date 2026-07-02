@@ -34,15 +34,11 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginForm) => {
     try {
       setLoading(true);
-      console.log(loginType);
-      console.log(data);
       let res;
       if (loginType === "admin") {
         res = await adminLogin(data);
-        console.log("loginType")
       } else {
         res = await employeeLogin(data);
-        console.log("loginType")
       }
 
       if (res?.token) {

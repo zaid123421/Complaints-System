@@ -1,40 +1,18 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Cookies from "js-cookie";
-
-interface ComplaintDistribution {
-  type: string;
-  count: number;
-  percentage: number;
-}
-
-interface ReportData {
-  distribution: ComplaintDistribution[];
-  totalComplaints: number;
-  agency: string;
-}
-
-interface StatusResponse {
-  totalComplaints: number;
-  resolvedCount: number;
-  inProgressCount: number;
-  pendingCount: number;
-  rejectedCount: number;
-  closedCount: number;
-  agency: string;
-}
-
-interface AvgResolutionTimeResponse {
-  averageDays: number;
-  averageHours: number;
-  minResolutionDays: number;
-  maxResolutionDays: number;
-  totalResolvedComplaints: number;
-  agency: string;
-}
-
-type ExportFormat = "csv" | "pdf";
+import type {
+  ReportData,
+  StatusResponse,
+  AvgResolutionTimeResponse,
+  ExportFormat,
+} from "@/types/reports";
+import {
+  getComplaintTypeDistribution,
+  getComplaintStatus,
+  getAverageResolutionTime,
+  exportReport,
+} from "@/lib/api/reports";
 
 interface FilterBarProps {
   fromDate: string;
@@ -50,8 +28,6 @@ interface FilterBarProps {
 }
 
 export default function ReportsPage() {
-  const token = Cookies.get("token");
-
   const [distFromDate, setDistFromDate] = useState("2025-01-01");
   const [distToDate, setDistToDate] = useState("2025-12-31");
   const [distExportFormat, setDistExportFormat] = useState<ExportFormat>("csv");
@@ -74,32 +50,35 @@ export default function ReportsPage() {
   const fetchDistData = useCallback(async () => {
     setDistLoading(true);
     try {
-      const res = await fetch(`http://89.116.236.10:3200/api/v1/reports/complaint-type-distribution?fromDate=${distFromDate}&toDate=${distToDate}`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      setDistData(await res.json());
-    } catch (err) { console.error(err); } finally { setDistLoading(false); }
-  }, [distFromDate, distToDate, token]);
+      setDistData(await getComplaintTypeDistribution(distFromDate, distToDate));
+    } catch {
+      // ignore
+    } finally {
+      setDistLoading(false);
+    }
+  }, [distFromDate, distToDate]);
 
   const fetchStatusData = useCallback(async () => {
     setStatusLoading(true);
     try {
-      const res = await fetch(`http://89.116.236.10:3200/api/v1/reports/complaint-status?fromDate=${statusFromDate}&toDate=${statusToDate}`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      setStatusData(await res.json());
-    } catch (err) { console.error(err); } finally { setStatusLoading(false); }
-  }, [statusFromDate, statusToDate, token]);
+      setStatusData(await getComplaintStatus(statusFromDate, statusToDate));
+    } catch {
+      // ignore
+    } finally {
+      setStatusLoading(false);
+    }
+  }, [statusFromDate, statusToDate]);
 
   const fetchAvgData = useCallback(async () => {
     setAvgLoading(true);
     try {
-      const res = await fetch(`http://89.116.236.10:3200/api/v1/reports/average-resolution-time?fromDate=${avgFromDate}&toDate=${avgToDate}`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      setAvgData(await res.json());
-    } catch (err) { console.error(err); } finally { setAvgLoading(false); }
-  }, [avgFromDate, avgToDate, token]);
+      setAvgData(await getAverageResolutionTime(avgFromDate, avgToDate));
+    } catch {
+      // ignore
+    } finally {
+      setAvgLoading(false);
+    }
+  }, [avgFromDate, avgToDate]);
 
   useEffect(() => {
     fetchDistData();
@@ -108,25 +87,42 @@ export default function ReportsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
 
-  const handleExport = async (type: 'dist' | 'status' | 'avg') => {
-    let from, to, agency, endpoint, format;
-    if (type === 'dist') { 
-      from = distFromDate; to = distToDate; agency = distData?.agency; endpoint = 'complaint-type-distribution'; format = distExportFormat;
-    } else if (type === 'status') { 
-      from = statusFromDate; to = statusToDate; agency = statusData?.agency; endpoint = 'complaint-status'; format = statusExportFormat;
-    } else { 
-      from = avgFromDate; to = avgToDate; agency = avgData?.agency; endpoint = 'average-resolution-time'; format = avgExportFormat;
+  const handleExport = async (type: "dist" | "status" | "avg") => {
+    let from: string, to: string, agency: string | undefined, endpoint: string, format: ExportFormat;
+    if (type === "dist") {
+      from = distFromDate;
+      to = distToDate;
+      agency = distData?.agency;
+      endpoint = "complaint-type-distribution";
+      format = distExportFormat;
+    } else if (type === "status") {
+      from = statusFromDate;
+      to = statusToDate;
+      agency = statusData?.agency;
+      endpoint = "complaint-status";
+      format = statusExportFormat;
+    } else {
+      from = avgFromDate;
+      to = avgToDate;
+      agency = avgData?.agency;
+      endpoint = "average-resolution-time";
+      format = avgExportFormat;
     }
 
-    const url = `http://89.116.236.10:3200/api/v1/reports/${endpoint}/export?format=${format}&fromDate=${from}&toDate=${to}&agency=${encodeURIComponent(agency || "")}`;
     try {
-      const response = await fetch(url, { headers: { "Authorization": `Bearer ${token}` } });
-      const blob = await response.blob();
-      const link = document.createElement('a');
+      const blob = await exportReport(endpoint, {
+        format,
+        fromDate: from,
+        toDate: to,
+        agency: agency || "",
+      });
+      const link = document.createElement("a");
       link.href = window.URL.createObjectURL(blob);
       link.download = `تقرير-${endpoint}.${format}`;
       link.click();
-    } catch (err) { console.error(err); }
+    } catch {
+      // ignore
+    }
   };
 
   return (

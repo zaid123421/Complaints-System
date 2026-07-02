@@ -1,36 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import axios from "axios";
-import Cookies from "js-cookie";
 import { AiOutlineHistory, AiOutlineSearch, AiOutlineDownload } from "react-icons/ai";
-
-// --- الواجهات (Interfaces) ---
-
-interface AuditLogEntry {
-  id: number;
-  userId: number;
-  actorId: number;
-  userName: string;
-  actorName: string;
-  action: string;
-  targetType: string;
-  targetId: string;
-  details: string;
-  status: "SUCCESS" | "FAILURE";
-  ipAddress: string;
-  timestamp: string;
-  createdAt: string;
-}
-
-interface PaginationData {
-  page: number;
-  size: number;
-  totalElements: number;
-  totalPages: number;
-  hasNext: boolean;
-  hasPrevious: boolean;
-}
+import type { AuditLogEntry } from "@/types/audit";
+import type { PaginatedResponse } from "@/types/api";
+import { AUDIT_ACTION_OPTIONS, AUDIT_TARGET_TYPE_OPTIONS } from "@/constants/reference-data";
+import { getAuditLogs, exportAuditLogs } from "@/lib/api/audit";
 
 interface FilterInputProps {
   label: string;
@@ -48,8 +23,6 @@ interface FilterSelectProps {
 }
 
 export default function AuditLogPage() {
-  const token = Cookies.get("token");
-
   // --- حالات الفلترة ---
   const [userId, setUserId] = useState("");
   const [action, setAction] = useState("");
@@ -58,131 +31,64 @@ export default function AuditLogPage() {
   const [fromDate, setFromDate] = useState("2025-01-01T00:00:00");
   const [toDate, setToDate] = useState("2026-01-02T23:59:59");
   
-  // --- خيارات العمليات (Action Options) ---
-  const actionOptions = [
-    { label: "إنشاء شكوى", value: "CREATE_COMPLAINT" },
-    { label: "تحديث شكوى", value: "UPDATE_COMPLAINT" },
-    { label: "الرد على شكوى", value: "RESPOND_TO_COMPLAINT" },
-    { label: "طلب معلومات إضافية", value: "REQUEST_ADDITIONAL_INFO" },
-    { label: "تقديم معلومات إضافية", value: "PROVIDE_ADDITIONAL_INFO" },
-    { label: "إلغاء طلب المعلومات", value: "CANCEL_INFO_REQUEST" },
-    { label: "تسجيل رمز الإشعارات", value: "REGISTER_NOTIFICATION_TOKEN" },
-    { label: "إلغاء رمز الإشعارات", value: "UNREGISTER_NOTIFICATION_TOKEN" },
-    { label: "إرسال إشعار", value: "SEND_NOTIFICATION" },
-    { label: "تسجيل دخول", value: "LOGIN" },
-    { label: "دخول مواطن", value: "LOGIN_CITIZEN" },
-    { label: "دخول موظف", value: "LOGIN_EMPLOYEE" },
-    { label: "تسجيل مواطن جديد", value: "REGISTER_CITIZEN" },
-    { label: "إنشاء مواطن", value: "CREATE_CITIZEN" },
-    { label: "تحديث مواطن", value: "UPDATE_CITIZEN" },
-    { label: "حذف مواطن", value: "DELETE_CITIZEN" },
-    { label: "إنشاء موظف", value: "CREATE_EMPLOYEE" },
-    { label: "تحديث موظف", value: "UPDATE_EMPLOYEE" },
-    { label: "حذف موظف", value: "DELETE_EMPLOYEE" },
-    { label: "تحديث صلاحيات المستخدم", value: "UPDATE_USER_PERMISSIONS" },
-    { label: "إنشاء دور (Role)", value: "CREATE_ROLE" },
-    { label: "تحديث دور (Role)", value: "UPDATE_ROLE" },
-    { label: "حذف دور (Role)", value: "DELETE_ROLE" },
-    { label: "تحديث صلاحيات الدور", value: "UPDATE_ROLE_PERMISSIONS" },
-    { label: "تغيير كلمة المرور", value: "CHANGE_PASSWORD" },
-    { label: "إعادة تعيين كلمة المرور", value: "RESET_PASSWORD" },
-  ];
-
-  // --- خيارات نوع الهدف (Target Type Options) ---
-  const targetTypeOptions = [
-    { label: "شكوى", value: "COMPLAINT" },
-    { label: "طلب معلومات", value: "INFORMATION_REQUEST" },
-    { label: "رمز إشعارات", value: "NOTIFICATION_TOKEN" },
-    { label: "إشعار", value: "NOTIFICATION" },
-    { label: "مستخدم", value: "USER" },
-    { label: "مواطن", value: "CITIZEN" },
-    { label: "موظف", value: "EMPLOYEE" },
-    { label: "دور", value: "ROLE" },
-  ];
+  const actionOptions = [...AUDIT_ACTION_OPTIONS];
+  const targetTypeOptions = [...AUDIT_TARGET_TYPE_OPTIONS];
 
   // --- حالات البيانات ---
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
-  const [pagination, setPagination] = useState<PaginationData | null>(null);
+  const [pagination, setPagination] = useState<Omit<PaginatedResponse<AuditLogEntry>, "content"> | null>(null);
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get("http://89.116.236.10:3200/api/v1/admin/audit-log", {
-        headers: { Authorization: `Bearer ${token}` },
-        params: {
-          userId: userId || undefined,
-          action: action || undefined,
-          targetType: targetType || undefined,
-          status: status || undefined,
-          fromDate,
-          toDate,
-          page,
-          size: 20
-        }
-      });
-
-      const { content, ...paginationInfo } = response.data;
-      setLogs(content || []);
-      setPagination(paginationInfo);
-      
-    } catch (error) {
-      console.error("خطأ في جلب سجل التدقيق:", error);
-      setLogs([]);
-      setPagination(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [userId, action, targetType, status, fromDate, toDate, page, token]);
-
-  useEffect(() => {
-    fetchLogs();
-  }, [fetchLogs]);
-
-  console.log(logs);
-
-  // --- دالة التصدير ---
-  const handleExport = async () => {
-    try {
-      const baseUrl = "http://89.116.236.10:3200/api/v1/admin/audit-log/export";
-      
-      // تجهيز الباراميترات (Query Params)
-      const queryParams = {
-        format: "csv",
+      const response = await getAuditLogs({
         userId: userId || undefined,
         action: action || undefined,
         targetType: targetType || undefined,
         status: status || undefined,
         fromDate,
         toDate,
-        size: "1000"
-      };
-
-      // طلب الملف من السيرفر باستخدام axios لضمان إرسال التوكن
-      const response = await axios.get(baseUrl, {
-        headers: { Authorization: `Bearer ${token}` },
-        params: queryParams,
-        responseType: 'blob', // مهم جداً لاستلام ملف
+        page,
+        size: 20,
       });
 
-      // إنشاء رابط مؤقت لتحميل الملف
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
+      const { content, ...paginationInfo } = response;
+      setLogs(content || []);
+      setPagination(paginationInfo);
+    } catch {
+      setLogs([]);
+      setPagination(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [userId, action, targetType, status, fromDate, toDate, page]);
+
+  useEffect(() => {
+    fetchLogs();
+  }, [fetchLogs]);
+
+  const handleExport = async () => {
+    try {
+      const blob = await exportAuditLogs({
+        userId: userId || undefined,
+        action: action || undefined,
+        targetType: targetType || undefined,
+        status: status || undefined,
+        fromDate,
+        toDate,
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
       link.href = url;
-      
-      // تسمية الملف (مثلاً: audit-log-2025.csv)
-      link.setAttribute('download', `audit-log-${new Date().getTime()}.csv`);
-      
+      link.setAttribute("download", `audit-log-${new Date().getTime()}.csv`);
       document.body.appendChild(link);
       link.click();
-
-      // تنظيف الرابط بعد التحميل
       link.parentNode?.removeChild(link);
       window.URL.revokeObjectURL(url);
-
-    } catch (error) {
-      console.error("خطأ أثناء تصدير الملف:", error);
+    } catch {
       alert("فشل تحميل الملف، يرجى المحاولة مرة أخرى.");
     }
   };

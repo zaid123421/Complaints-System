@@ -2,52 +2,19 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import axios from "axios";
 import Cookies from "js-cookie";
+import type { Attachment, HistoryItem, InfoRequest, ComplaintStatusDetail } from "@/types/complaint";
+import {
+  getComplaintById,
+  getComplaintHistory,
+  getInfoRequests,
+  sendInfoRequest,
+  respondToComplaint,
+  downloadAttachment,
+  getAttachmentUrl,
+} from "@/lib/api/complaints";
 
-/* ===================== Types ===================== */
-
-interface Attachment {
-  id: number;
-  originalFilename: string;
-  downloadUrl: string;
-}
-
-interface HistoryItem {
-  id: number;
-  actionType: string;
-  actionDescription: string;
-  actorId: number;
-  actorName: string;
-  actorEmail: string;
-  fieldChanged: string;
-  oldValue: string | null;
-  newValue: string | null;
-  createdAt: string;
-}
-
-interface InfoRequest {
-  id: number;
-  complaintId: number;
-  requestedBy: {
-    id: number;
-    name: string;
-    email: string;
-  };
-  requestMessage: string;
-  status: string;
-  requestedAt: string;
-  respondedAt: string | null;
-  responseMessage: string | null;
-  attachments: Attachment[];
-}
-
-type ComplaintStatus =
-  | "PENDING"
-  | "IN PROGRESS"
-  | "RESOLVED"
-  | "CLOSED"
-  | "REJECTED";
+type ComplaintStatus = ComplaintStatusDetail;
 
 interface Complaint {
   id: number;
@@ -61,8 +28,6 @@ interface Complaint {
   attachments: Attachment[];
   solutionSuggestion: string;
 }
-
-/* ===================== Component ===================== */
 
 export default function ComplaintDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -91,17 +56,11 @@ export default function ComplaintDetailPage() {
     if (!token || !id) return;
     try {
       setHistoryLoading(true);
-      const res = await axios.get(
-        `http://89.116.236.10:3200/api/v1/complaints/${id}/history`,
-        {
-          params: { page, size: historySize },
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      setHistory(res.data.content ?? []);
-      setHistoryPage(res.data.page);
-      setHistoryTotalPages(res.data.totalPages);
-    } catch (err) {
+      const res = await getComplaintHistory(id, page, historySize);
+      setHistory(res.content ?? []);
+      setHistoryPage(res.page);
+      setHistoryTotalPages(res.totalPages);
+    } catch {
       setHistory([]);
     } finally {
       setHistoryLoading(false);
@@ -111,30 +70,24 @@ export default function ComplaintDetailPage() {
   const fetchInfoRequests = useCallback(async () => {
     if (!token || !id) return;
     try {
-      const res = await axios.get(
-        `http://89.116.236.10:3200/api/v1/complaints/${id}/info-requests`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setInfoRequests(res.data.content || []);
-    } catch (err) {
-      console.error("فشل جلب طلبات المعلومات:", err);
+      const res = await getInfoRequests(id);
+      setInfoRequests(res.content || []);
+    } catch {
+      // ignore
     }
   }, [id, token]);
 
   const fetchComplaint = useCallback(async () => {
     if (!token || !id) return;
     try {
-      const res = await axios.get(
-        `http://89.116.236.10:3200/api/v1/complaints/${id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setComplaint(res.data);
-      setResponseText(res.data.response || "");
-      setStatus(res.data.status);
-      setOriginalResponse(res.data.response || "");
-      setOriginalStatus(res.data.status);
-    } catch (err) {
-      console.error("فشل جلب الشكوى:", err);
+      const data = await getComplaintById(id);
+      setComplaint(data);
+      setResponseText(data.response || "");
+      setStatus(data.status);
+      setOriginalResponse(data.response || "");
+      setOriginalStatus(data.status);
+    } catch {
+      // ignore
     }
   }, [id, token]);
 
@@ -157,16 +110,12 @@ export default function ComplaintDetailPage() {
     if (!newRequestMessage.trim() || !token) return;
     setIsSendingInfo(true);
     try {
-      await axios.post(
-        `http://89.116.236.10:3200/api/v1/complaints/${id}/info-requests`,
-        { message: newRequestMessage },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await sendInfoRequest(id, newRequestMessage);
       alert("تم إرسال طلب المعلومة للمواطن بنجاح");
       setNewRequestMessage("");
-      await fetchInfoRequests(); 
-      await fetchHistory(0); 
-    } catch (err) {
+      await fetchInfoRequests();
+      await fetchHistory(0);
+    } catch {
       alert("فشل إرسال الطلب");
     } finally {
       setIsSendingInfo(false);
@@ -180,18 +129,11 @@ export default function ComplaintDetailPage() {
       return;
     }
     try {
-      await axios.put(
-        `http://89.116.236.10:3200/api/v1/complaints/${id}/respond`,
-        null,
-        {
-          params: { status, response: responseText },
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      await respondToComplaint(id, status, responseText);
       alert("تم تحديث الشكوى بنجاح");
       await fetchComplaint();
       await fetchHistory(0);
-    } catch (err) {
+    } catch {
       alert("فشل تحديث الشكوى");
     }
   };
@@ -199,11 +141,7 @@ export default function ComplaintDetailPage() {
   const handleDownload = async (url: string, filename: string) => {
     if (!token) return;
     try {
-      const res = await axios.get(url, {
-        headers: { Authorization: `Bearer ${token}` },
-        responseType: "blob",
-      });
-      const blob = new Blob([res.data]);
+      const blob = await downloadAttachment(url);
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.download = filename;
@@ -273,7 +211,7 @@ export default function ComplaintDetailPage() {
                 <div key={att.id} className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200 max-w-full">
                   <span className="text-xs md:text-sm truncate max-w-[120px] sm:max-w-[200px]">{att.originalFilename}</span>
                   <button
-                    onClick={() => handleDownload(`http://89.116.236.10:3200/api/v1/complaints/${complaint.id}/attachments/${att.id}`, att.originalFilename)}
+                    onClick={() => handleDownload(getAttachmentUrl(complaint.id, att.id), att.originalFilename)}
                     className="text-blue-600 hover:text-blue-800 font-bold text-xs shrink-0"
                   >
                     تحميل
@@ -310,7 +248,7 @@ export default function ComplaintDetailPage() {
                           {req.attachments.map(att => (
                             <button 
                               key={att.id}
-                              onClick={() => handleDownload(`http://89.116.236.10:3200/api/v1/complaints/${id}/attachments/${att.id}`, att.originalFilename)}
+                              onClick={() => handleDownload(getAttachmentUrl(Number(id), att.id), att.originalFilename)}
                               className="text-[10px] bg-white border border-green-200 text-green-700 px-2 py-1 rounded-md hover:bg-green-100 transition-colors"
                             >
                               📎 {att.originalFilename}

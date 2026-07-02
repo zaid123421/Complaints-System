@@ -1,36 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# نظام إدارة الشكاوي
 
-## Getting Started
+منصة إدارية عربية (RTL) لإدارة شكاوى المواطنين. تعمل بشكل مستقل على Vercel مع بيانات تجريبية (Mock Data) — لا حاجة لـ backend خارجي.
 
-First, run the development server:
+## التشغيل المحلي
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+افتح [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## حسابات التجربة (Demo)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| الدور | البريد | كلمة المرور | نوع تسجيل الدخول |
+|-------|--------|-----------|------------------|
+| مدير المنصة (PLATFORM_ADMIN) | `admin@demo.com` | `Demo12345!` | تسجيل دخول **مدير** |
+| مشرف (SUPERVISOR) | `supervisor@demo.com` | `Demo12345!` | تسجيل دخول **موظف** |
+| مشاهد (VIEWER) | `viewer@demo.com` | `Demo12345!` | تسجيل دخول **موظف** |
 
-## Learn More
+## مسار التجربة من A إلى Z
 
-To learn more about Next.js, take a look at the following resources:
+1. **تسجيل الدخول** — استخدم `admin@demo.com` كنوع "مدير"
+2. **لوحة التحكم** (`/dashboard`) — إحصائيات، فلاتر، تصدير PDF
+3. **الشكاوي** (`/complaints`) — فلترة، بحث برقم التتبع (مثال: `SHK-20260202-0001`)
+4. **تفاصيل شكوى** — عرض، طلب معلومات، رد (بحساب موظف)
+5. **المستخدمين** (`/users`) — مواطنين وموظفين، حظر، تغيير أدوار
+6. **إضافة موظف** (`/users/add`)
+7. **التقارير** (`/reports`) — بحساب `supervisor@demo.com`
+8. **سجل التدقيق** (`/audit-logs`) — بحساب المدير
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## النشر على Vercel
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. اربط المستودع مع Vercel
+2. إعدادات البناء الافتراضية كافية (`pnpm build`)
+3. اختياري: أضف `NEXT_PUBLIC_API_URL=/api/v1` في Environment Variables
 
-## Deploy on Vercel
+## ملاحظات
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- البيانات مخزّنة في الذاكرة (in-memory) — التغييرات (رد على شكوى، إضافة موظف، إلخ) قد تُعاد عند إعادة تشغيل السيرفر (cold start على Vercel)
+- لا تعديل على واجهة المستخدم — نفس التصميم مع طبقة API موحّدة
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## البنية
+
+```
+src/
+├── app/api/v1/[...path]/   # Mock API routes
+├── lib/api/                # طبقة API للواجهة
+├── lib/mock/               # Seed data + handlers
+├── types/                  # TypeScript types
+└── constants/              # بيانات مرجعية مشتركة
+```
+
+## الأوامر
+
+```bash
+pnpm dev      # تشغيل التطوير
+pnpm build    # بناء الإنتاج
+pnpm start    # تشغيل الإنتاج
+pnpm lint     # فحص الكود
+```
